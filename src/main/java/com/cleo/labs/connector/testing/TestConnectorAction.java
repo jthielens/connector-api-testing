@@ -7,18 +7,28 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import com.cleo.connector.api.ConnectorClient;
 import com.cleo.connector.api.directory.Entry;
 import com.cleo.connector.api.interfaces.IConnectorIncoming;
 import com.cleo.connector.api.interfaces.IConnectorOutgoing;
+import com.cleo.connector.api.property.ConnectorPropertyException;
+import com.cleo.connector.shell.CommandProcessor;
 import com.cleo.connector.shell.ConnectorHostException;
+import com.cleo.connector.shell.interfaces.IConnector;
 import com.cleo.connector.shell.interfaces.IConnectorAction;
 import com.cleo.connector.shell.interfaces.IConnectorCommand;
 
 public class TestConnectorAction implements IConnectorAction {
     private Map<String,String> values;
+    private CommandProcessor commandProcessor;
+    private IConnector connector;
+    private ConnectorClient connectorClient;
 
-    public TestConnectorAction() {
-        values = new HashMap<>();
+    public TestConnectorAction(IConnector connector, ConnectorClient connectorClient) throws ConnectorPropertyException {
+        this.values = new HashMap<>();
+        this.commandProcessor = null; // defer construction because of circular linkages between connector shell classes
+        this.connector = connector;
+        this.connectorClient = connectorClient;
     }
 
     public TestConnectorAction set(String key, String value) {
@@ -90,4 +100,42 @@ public class TestConnectorAction implements IConnectorAction {
         return Optional.ofNullable(values.get(key));
     }
 
+    @Override
+    public String genTransferId(String schemeName, String transferId) {
+        return genTransferId(schemeName);
+    }
+
+    @Override
+    public CommandProcessor getCommandProcessor() {
+        synchronized (this) {
+            if (commandProcessor == null) {
+                try {
+                    commandProcessor = new CommandProcessor(connector, connectorClient);
+                } catch (ConnectorPropertyException e) {
+                    connectorClient.getLogger().logThrowable(e);
+                }
+            }
+            return commandProcessor;
+        }
+    }
+
+    @Override
+    public String getInbox() throws Exception {
+        throw new ConnectorHostException("not implemented");
+    }
+
+    @Override
+    public String getOutbox() throws Exception {
+        throw new ConnectorHostException("not implemented");
+    }
+
+    @Override
+    public String getSentbox() throws Exception {
+        throw new ConnectorHostException("not implemented");
+    }
+
+    @Override
+    public String getReceivedbox() throws Exception {
+        throw new ConnectorHostException("not implemented");
+    }
 }
