@@ -16,7 +16,7 @@
     </scm>
 
     <properties>
-        <cleo.version>5.5.0.0</cleo.version>
+        <cleo.version>5.5.0-SNAPSHOT</cleo.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
