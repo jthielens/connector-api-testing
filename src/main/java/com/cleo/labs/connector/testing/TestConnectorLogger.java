@@ -333,6 +333,6 @@ public class TestConnectorLogger implements IConnectorLogger {
         } else {
             out.println("ERROR: "+e.toString());
         }
-
+        e.printStackTrace(out);
     }
 }
