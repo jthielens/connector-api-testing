@@ -77,12 +77,15 @@ public class TestConnectorAction implements IConnectorAction {
     @Override
     public void getFilterOutputStream(IConnectorIncoming incoming, boolean append)
             throws ConnectorHostException, IOException {
-        throw new ConnectorHostException("not implemented");
+        if (append) {
+            throw new ConnectorHostException("not implemented");
+        }
+        // no-op
     }
 
     @Override
     public void getFilterInputStream(IConnectorOutgoing outgoing) throws ConnectorHostException, IOException {
-        throw new ConnectorHostException("not implemented");
+        // no-op
     }
 
     @Override
