@@ -12,12 +12,19 @@ import com.cleo.connector.api.ConnectorConfig;
 import com.cleo.connector.api.ConnectorException;
 import com.cleo.connector.api.annotations.Client;
 import com.cleo.connector.api.property.CommonProperty;
-import com.cleo.connector.api.property.ConnectorPropertyException;
 import com.cleo.connector.shell.interfaces.IConnectorHost;
 import com.google.common.io.ByteStreams;
 
 public class TestConnectorClientBuilder {
 
+    /**
+     * Finds a constructor compatiable with an argument list using {@code isAssignableFrom}, which
+     * is more flexible than just using {@code getDeclaredConstructor} with a list of types.
+     * @param clientClass the class to construct
+     * @param args the argument list to match
+     * @return an appropriate {@code Constructor}
+     * @throws NoSuchMethodException if no appropriate constructor can be found
+     */
     @SuppressWarnings("unchecked")
     private static Constructor<? extends ConnectorClient> findConstructor(Class<? extends ConnectorClient> clientClass, List<Object> args) throws NoSuchMethodException {
         constructor:
@@ -35,6 +42,10 @@ public class TestConnectorClientBuilder {
         throw new NoSuchMethodException();
     }
 
+    /**
+     * A helper class to keep track of settings to apply in the
+     * {@code build} step.
+     */
     private static class Setting {
         public String key = null;
         public String value = null;
@@ -61,7 +72,7 @@ public class TestConnectorClientBuilder {
     Class<? extends ConnectorClient> clientClass;
     private PrintStream logger;
     private List<Setting> settings;
-   
+
     public TestConnectorClientBuilder(Class<? extends ConnectorConfig> schemaClass) throws ConnectorException {
         clientAnnotation = schemaClass.getAnnotation(Client.class);
         if (clientAnnotation == null) {
@@ -78,11 +89,21 @@ public class TestConnectorClientBuilder {
         settings = new ArrayList<>();
     }
 
+    /**
+     * Select a logging destination (/dev/null by default).
+     * @param logger where the log output should go
+     * @return {@code this}
+     */
     public TestConnectorClientBuilder logger(PrintStream logger) {
         this.logger = logger;
         return this;
     }
 
+    /**
+     * Record some settings to apply at {@code build} time.
+     * @param keyValue an (even-length-or-else) list of key/value Strings
+     * @return {@code this}
+     */
     public TestConnectorClientBuilder set(String...keyValue) {
         if (keyValue.length % 2 != 0) {
             throw new IllegalArgumentException(String.format("key value list cannot have an odd length (%d) - missing value?", keyValue.length));
@@ -93,16 +114,38 @@ public class TestConnectorClientBuilder {
         return this;
     }
 
+    /**
+     * Record some settings to apply at {@code build} time.
+     * @param setter a {@code UnaryOperator} to apply desired settings to the {@code TestConnector}
+     * @return {@code this}
+     */
     public TestConnectorClientBuilder set(UnaryOperator<TestConnector> setter) {
         settings.add(new Setting(setter));
         return this;
     }
 
+    /**
+     * Set the standard DEBUG flag on or off.
+     * @param debug the DEBUG flag setting
+     * @return {@code this}
+     */
     public TestConnectorClientBuilder debug(boolean debug) {
         settings.add(new Setting(CommonProperty.EnableDebug.name(), String.valueOf(debug)));
         return this;
     }
 
+    /**
+     * Build and return a ConnectorClient using the schema and any accumulated
+     * settings.  Most ConnectorClient constructors take only the schema instance
+     * as an argument, but some have supplementary constructors for unit testing
+     * that take additional arguments (e.g. to set up mocks etc.).  The schema
+     * object is always passed, but any additional arguments supplied here are also
+     * passed, if an appropriate constructor can be found through reflection.
+     *
+     * @param args the (possibly empty) list of additional constructor arguments
+     * @return a ConnectorClient
+     * @throws ConnectorException if there is a problem
+     */
     public ConnectorClient build(Object...args) throws ConnectorException {
         try {
             List<Object> constructorArgs = new ArrayList<>();
@@ -120,40 +163,6 @@ public class TestConnectorClientBuilder {
         } catch (NoSuchMethodException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
             throw new ConnectorException(e);
         }
-    }
-
-    public static ConnectorClient setup(Class<? extends ConnectorConfig> schemaClass, UnaryOperator<TestConnector> settings, Object...args) {
-        Client clientAnnotation = schemaClass.getAnnotation(Client.class);
-        if (clientAnnotation != null) {
-            try {
-                ConnectorConfig schema;
-                schema = schemaClass.newInstance();
-                schema.setup();
-                Class<? extends ConnectorClient> clientClass = clientAnnotation.value();
-                List<Class<?>> constructorTypes = new ArrayList<>();
-                List<Object> constructorArgs = new ArrayList<>();
-                constructorTypes.add(schemaClass);
-                constructorArgs.add(schema);
-                for (Object arg : args) {
-                    constructorTypes.add(arg.getClass());
-                    constructorArgs.add(arg);
-                }
-                //Constructor<? extends ConnectorClient> constructor = clientClass.getDeclaredConstructor(constructorTypes.toArray(new Class<?>[constructorTypes.size()]));
-                Constructor<? extends ConnectorClient> constructor = findConstructor(clientClass, constructorArgs);
-                ConnectorClient client = constructor.newInstance(constructorArgs.toArray());
-                TestConnector connector = new TestConnector(System.err, client);
-                settings.apply(connector);
-                IConnectorHost connectorHost = new TestConnectorHost(client);
-                client.setup(connector, schema, connectorHost);
-                return client;
-            } catch (InstantiationException | IllegalAccessException | NoSuchMethodException |
-                    SecurityException | IllegalArgumentException | InvocationTargetException |
-                    ConnectorPropertyException e) {
-                // fall through and return null
-                e.printStackTrace();
-            }
-        }
-        return null;
     }
 
 }
